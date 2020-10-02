@@ -2,26 +2,18 @@
 <h1 align="center">harmony</h1>
 <p align="center">Compute error profiles from alignments.</p>
 
-# How to build
-## Dependencies
+# Dependencies
 - CCS
   - `conda install -c bioconda pbccs`
 - Alignment
   - `conda install -c bioconda pbmm2`
 - Harmony
-  - Boost
-  - Meson
-  - Ninja
-  - C++14 compiler
-  - Linux or MacOS environment
+  - Get binary from [releases](https://github.com/pacificbiosciences/harmony/releases/tag/v0.1.0)
+  - DYI: `boost`, `meson`, `ninja`, C++14 compiler, Linux or MacOS environment
 - Create plot
-  - R
-  - libraries
-    - vroom
-    - dplyr
-    - ggplot2
+  - R with `vroom`, `dplyr`, `ggplot2`
 
-## Compile
+# How to compile (for dyi)
 
     mkdir build && cd build
     meson --prefix ~/mytools
@@ -29,11 +21,11 @@
     ninja install
 
 # How to use
-## CCS data
+## Generate HiFi data
 
     ccs m64006_190824_131036.subreads.bam m64006_190824_131036.hifi.bam --log-level INFO
 
-## Align CCS data
+## Align HiFi data
 
     pbmm2 align --best-n 1 --preset HiFi \
                 ref.fasta m64006_190824_131036.hifi.bam m64006_190824_131036.hifi.aligned.bam

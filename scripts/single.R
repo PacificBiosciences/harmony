@@ -9,8 +9,6 @@ library(vroom)
 library(dplyr)
 library(ggplot2)
 
-args=c("m64006_190824_131036","m64006_190827_133700")
-
 data = NULL
 
 for (p in args) {

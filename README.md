@@ -32,7 +32,7 @@
 
 ## Extract error profiles
 
-    ~/mytools/bin/harmony m64006_190824_131036.hifi.aligned.bam > m64006_190824_131036
+    ~/mytools/bin/harmony m64006_190824_131036.hifi.aligned.bam ref.fasta > m64006_190824_131036
 
 ## Plot curve
 

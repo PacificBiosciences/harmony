@@ -19,8 +19,9 @@ harmony_gen_headers = [
 harmony_main = executable(
   'harmony',
   files([
-    'main.cpp',
+    'HarmonySettings.cpp',
     'LibraryInfo.cpp',
+    'main.cpp',
     'SimpleBamParser.cpp',
   ]) + harmony_gen_headers,
   install : true,

@@ -1,6 +1,7 @@
 #include "HarmonySettings.hpp"
 #include "LibraryInfo.hpp"
 #include "SimpleBamParser.h"
+#include "pbbam/BamRecord.h"
 
 #include <htslib/hts.h>
 #include <pbbam/FastaReader.h>
@@ -9,6 +10,7 @@
 #include <pbcopper/cli2/CLI.h>
 #include <pbcopper/cli2/internal/BuiltinOptions.h>
 #include <pbcopper/logging/Logging.h>
+#include <pbcopper/parallel/WorkQueue.h>
 #include <pbcopper/utility/MemoryConsumption.h>
 #include <pbcopper/utility/PbcopperVersion.h>
 #include <pbcopper/utility/Stopwatch.h>
@@ -188,6 +190,23 @@ std::string ParseAlignment(const BAM::BamRecord& record,
     return out.str();
 }
 
+void WorkerThread(Parallel::WorkQueue<std::vector<std::string>>& queue, std::ofstream& writer)
+{
+    int32_t counter = 0;
+
+    auto LambdaWorker = [&](std::vector<std::string>&& ps) {
+        for (const auto& s : ps) {
+            if (++counter % 1000 == 0) {
+                PBLOG_INFO << counter;
+            }
+            writer << s;
+        }
+    };
+
+    while (queue.ConsumeWith(LambdaWorker)) {
+    }
+}
+
 int RunnerSubroutine(const CLI_v2::Results& options)
 {
     Utility::Stopwatch globalTimer;
@@ -200,19 +219,6 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     std::unique_ptr<ReaderBase> alnReader = SimpleBamParser::BamQuery(alnFile, settings.Region);
     PBLOG_INFO << "Start reading reference";
     std::unordered_map<std::string, std::string> refs = ReadRefs(refFile);
-    // std::unordered_map<std::string, std::vector<bool>> hps;
-    // for (const auto& r : refs) {
-    //     const auto& singleRef = r.second;
-    //     const int32_t numBases = singleRef.size();
-    //     std::vector<bool> hp(numBases, false);
-    //     for (int32_t i = 0; i < numBases - 1; ++i) {
-    //         if (singleRef[i] == singleRef[i + 1]) {
-    //             hp[i] = true;
-    //             hp[i + 1] = true;
-    //         }
-    //     }
-    //     hps.insert({r.first, std::move(hp)});
-    // }
     PBLOG_INFO << "Finished reading reference";
 
     std::array<char, 4> bases = {'A', 'C', 'G', 'T'};
@@ -247,12 +253,42 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     }
     outputFile << '\n';
 
-    int32_t counter = 0;
-    while (alnReader->GetNext(record)) {
-        if (++counter % 1000 == 0) {
-            PBLOG_INFO << counter;
+    if (settings.NumThreads == 1) {
+        int32_t counter = 0;
+        while (alnReader->GetNext(record)) {
+            if (++counter % 1000 == 0) {
+                PBLOG_INFO << counter;
+            }
+            outputFile << ParseAlignment(record, refs);
         }
-        outputFile << ParseAlignment(record, refs);
+    } else {
+        Parallel::WorkQueue<std::vector<std::string>> workQueue(settings.NumThreads, 10);
+        std::future<void> workerThread =
+            std::async(std::launch::async, WorkerThread, std::ref(workQueue), std::ref(outputFile));
+
+        const auto submit = [&refs](const std::vector<BAM::BamRecord>& records) {
+            std::vector<std::string> ss;
+            for (const auto& record : records) {
+                ss.emplace_back(ParseAlignment(record, refs));
+            }
+            return ss;
+        };
+
+        std::vector<BAM::BamRecord> chunk;
+        while (alnReader->GetNext(record)) {
+            if (chunk.size() == 5) {
+                workQueue.ProduceWith(submit, std::move(chunk));
+                chunk = {};
+            }
+            chunk.emplace_back(record);
+        }
+        if (!chunk.empty()) {
+            workQueue.ProduceWith(submit, std::move(chunk));
+        }
+
+        workQueue.FinalizeWorkers();
+        workerThread.wait();
+        workQueue.Finalize();
     }
 
     globalTimer.Freeze();

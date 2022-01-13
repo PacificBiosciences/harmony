@@ -1,16 +1,100 @@
+#include "LibraryInfo.hpp"
+#include "SimpleBamParser.h"
+
+#include <htslib/hts.h>
+#include <pbbam/FastaReader.h>
+#include <pbbam/IndexedFastaReader.h>
+#include <pbbam/PbbamVersion.h>
+#include <pbcopper/cli2/CLI.h>
+#include <pbcopper/cli2/internal/BuiltinOptions.h>
+#include <pbcopper/logging/Logging.h>
+#include <pbcopper/utility/MemoryConsumption.h>
+#include <pbcopper/utility/PbcopperVersion.h>
+#include <pbcopper/utility/Stopwatch.h>
+#include <zlib.h>
+#include <boost/version.hpp>
+
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-#include <pbbam/FastaReader.h>
-#include <pbbam/IndexedFastaReader.h>
-#include <pbcopper/logging/Logging.h>
+namespace PacBio {
+namespace OptionNames {
+// clang-format off
+const CLI_v2::Option Region {
+R"({
+    "names" : ["region"],
+    "description" : "Genomic region",
+    "type" : "string",
+    "default" : ""
+})"
+};
+// clang-format on
+}  // namespace OptionNames
 
-#include "SimpleBamParser.h"
+CLI_v2::Interface CreateCLI()
+{
+    static const std::string description{"Compute error profiles from alignments."};
+    CLI_v2::Interface i{"harmony", description, Harmony::LibraryInfo().Release};
 
-namespace {
+    Logging::LogConfig logConfig;
+    logConfig.Header = "| ";
+    logConfig.Delimiter = " | ";
+    logConfig.Fields = Logging::LogField::TIMESTAMP | Logging::LogField::LOG_LEVEL;
+    i.LogConfig(logConfig);
+
+    const CLI_v2::PositionalArgument InputAlignFile{
+        R"({
+        "name" : "IN.aligned.bam",
+        "description" : "Aligned BAM.",
+        "type" : "file",
+        "required" : true
+    })"};
+    const CLI_v2::PositionalArgument InputRefFile{
+        R"({
+        "name" : "IN.ref.fasta",
+        "description" : "Reference FASTA.",
+        "type" : "file",
+        "required" : true
+    })"};
+    i.AddPositionalArguments({InputAlignFile, InputRefFile});
+    i.AddOption(OptionNames::Region);
+
+    const auto printVersion = [](const CLI_v2::Interface& interface) {
+        const std::string harmonyVersion = []() {
+            return Harmony::LibraryInfo().Release + " (commit " + Harmony::LibraryInfo().GitSha1 +
+                   ')';
+        }();
+        const std::string pbbamVersion = []() { return BAM::LibraryFormattedVersion(); }();
+        const std::string pbcopperVersion = []() {
+            return Utility::LibraryVersionString() + " (commit " + Utility::LibraryGitSha1String() +
+                   ')';
+        }();
+        const std::string boostVersion = []() {
+            std::string v = BOOST_LIB_VERSION;
+            boost::replace_all(v, "_", ".");
+            return v;
+        }();
+        const std::string htslibVersion = []() { return std::string{hts_version()}; }();
+        const std::string zlibVersion = []() { return std::string{ZLIB_VERSION}; }();
+
+        std::cout << interface.ApplicationName() << " " << interface.ApplicationVersion() << '\n';
+        std::cout << '\n';
+        std::cout << "Using:\n";
+        std::cout << "  harmony  : " << harmonyVersion << '\n';
+        std::cout << "  pbbam    : " << pbbamVersion << '\n';
+        std::cout << "  pbcopper : " << pbcopperVersion << '\n';
+        std::cout << "  boost    : " << boostVersion << '\n';
+        std::cout << "  htslib   : " << htslibVersion << '\n';
+        std::cout << "  zlib     : " << zlibVersion << '\n';
+    };
+    i.RegisterVersionPrinter(printVersion);
+
+    return i;
+}
+
 std::unordered_map<std::string, std::string> ReadRefs(const std::string& refFile)
 {
     std::unordered_map<std::string, std::string> refs;
@@ -20,21 +104,30 @@ std::unordered_map<std::string, std::string> ReadRefs(const std::string& refFile
         refs.insert({fasta.Name(), fasta.Bases()});
     return refs;
 }
-}  // namespace
-int main(int argc, char* argv[])
-{
-    using namespace PacBio;
 
-    if (argc > 4 || argc < 3) {
+void SetBamReaderDecompThreads(const int32_t numThreads)
+{
+    static constexpr char BAMREADER_ENV[] = "PB_BAMREADER_THREADS";
+    const std::string decompThreads = std::to_string(numThreads);
+    setenv(BAMREADER_ENV, decompThreads.c_str(), true);
+}
+
+int RunnerSubroutine(const CLI_v2::Results& options)
+{
+    Utility::Stopwatch globalTimer;
+    SetBamReaderDecompThreads(options.NumThreads());
+
+    const std::vector<std::string>& files = options.PositionalArguments();
+
+    if (files.size() > 4 || files.size() < 3) {
         PBLOG_FATAL << "Please specify input alignment BAM file, reference FASTA file, and an "
                        "optional region interval.";
         std::exit(EXIT_FAILURE);
     }
 
-    const std::string alnFile{argv[1]};
-    const std::string refFile{argv[2]};
-    std::string region;
-    if (argc == 4) region = std::string{argv[3]};
+    const std::string alnFile{files[0]};
+    const std::string refFile{files[1]};
+    const std::string region = options[OptionNames::Region];
 
     std::unique_ptr<ReaderBase> alnReader = SimpleBamParser::BamQuery(alnFile, region);
     PBLOG_DEBUG << "Start reading reference";
@@ -227,5 +320,21 @@ int main(int argc, char* argv[])
         std::cout << '\n';
     }
 
+    globalTimer.Freeze();
+    PBLOG_INFO << "Run Time : " << globalTimer.ElapsedTime();
+    PBLOG_INFO << "CPU Time : "
+               << Utility::Stopwatch::PrettyPrintNanoseconds(
+                      static_cast<int64_t>(Utility::Stopwatch::CpuTime() * 1000 * 1000 * 1000));
+
+    int64_t const peakRss = PacBio::Utility::MemoryConsumption::PeakRss();
+    double const peakRssGb = peakRss / 1024.0 / 1024.0 / 1024.0;
+    PBLOG_INFO << "Peak RSS : " << std::fixed << std::setprecision(3) << peakRssGb << " GB";
+
     return EXIT_SUCCESS;
+}
+}  // namespace PacBio
+
+int main(int argc, char* argv[])
+{
+    return PacBio::CLI_v2::Run(argc, argv, PacBio::CreateCLI(), &PacBio::RunnerSubroutine);
 }

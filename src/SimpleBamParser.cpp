@@ -1,8 +1,7 @@
-// Author: Armin Töpfer
-
-#include <pbcopper/utility/FileUtils.h>
 
 #include "SimpleBamParser.h"
+
+#include <pbcopper/utility/FileUtils.h>
 
 namespace PacBio {
 BaiReader::BaiReader(const BAM::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset)

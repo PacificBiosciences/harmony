@@ -1,12 +1,6 @@
 // Author: Armin Töpfer
 #pragma once
 
-#include <memory>
-#include <string>
-
-#include <pbcopper/logging/Logging.h>
-#include <boost/algorithm/string.hpp>
-
 #include <pbbam/BamReader.h>
 #include <pbbam/CompositeBamReader.h>
 #include <pbbam/DataSet.h>
@@ -16,7 +10,14 @@
 #include <pbbam/PbiFilterQuery.h>
 #include <pbbam/PbiIndexedBamReader.h>
 #include <pbbam/internal/QueryBase.h>
+#include <pbcopper/logging/Logging.h>
+#include <boost/algorithm/string.hpp>
 #include "pbbam/GenomicInterval.h"
+
+#include <deque>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace PacBio {
 

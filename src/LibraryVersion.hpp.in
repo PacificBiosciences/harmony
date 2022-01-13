@@ -1,0 +1,7 @@
+#pragma once
+
+namespace PacBio {
+namespace Harmony {
+constexpr const char ReleaseVersion[] = "@HARMONY_VERSION@";
+}  // namespace Harmony
+}  // namespace PacBio

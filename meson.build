@@ -1,7 +1,7 @@
 project(
   'harmony',
   'cpp',
-  version : '0.1.0',
+  version : '0.1.0-99',
   default_options : [
     'buildtype=release',
     'warning_level=3',
@@ -44,18 +44,4 @@ harmony_lib_deps = [
   harmony_pbcopper_dep,
   harmony_htslib_dep]
 
-harmony_cpp_sources = files([
-  'src/main.cpp',
-  'src/SimpleBamParser.cpp'
-])
-
-harmony_src_include_directories = include_directories('src')
-
-# sources + executable
-harmony_main = executable(
-  'harmony',
-  harmony_cpp_sources,
-  install : true,
-  dependencies : harmony_lib_deps,
-  include_directories : harmony_src_include_directories,
-  cpp_args : harmony_flags)
+subdir('src')

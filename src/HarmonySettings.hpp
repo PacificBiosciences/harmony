@@ -16,6 +16,7 @@ struct HarmonySettings
     const std::vector<std::string> FileNames;
     const std::string Region;
     const int32_t NumThreads;
+    const bool ExtendedMatrics;
 
     HarmonySettings(const PacBio::CLI_v2::Results& options);
 

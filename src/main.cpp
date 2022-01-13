@@ -48,7 +48,8 @@ void SetBamReaderDecompThreads(const int32_t numThreads)
 }
 
 std::string ParseAlignment(const BAM::BamRecord& record,
-                           const std::unordered_map<std::string, std::string>& refs)
+                           const std::unordered_map<std::string, std::string>& refs,
+                           const bool extendedMetrics)
 {
     std::ostringstream out;
     std::map<char, std::map<char, int32_t>> singleBase;
@@ -74,32 +75,40 @@ std::string ParseAlignment(const BAM::BamRecord& record,
         int32_t len = cigar.Length();
         switch (cigar.Type()) {
             case BAM::CigarOperationType::INSERTION:
-                ++singleBaseIns[ref[refPos]][qry[qryPos]];
+                if (extendedMetrics) {
+                    ++singleBaseIns[ref[refPos]][qry[qryPos]];
+                }
                 ++insEvents;
                 if (len > 1) ++insMultiEvents;
                 ins += len;
                 qryPos += len;
                 break;
             case BAM::CigarOperationType::DELETION:
-                ++singleBaseDel[ref[refPos]];
-                for (int32_t i = 0; i < len; ++i)
-                    ++allBaseDel[ref[refPos + i]];
+                if (extendedMetrics) {
+                    ++singleBaseDel[ref[refPos]];
+                    for (int32_t i = 0; i < len; ++i)
+                        ++allBaseDel[ref[refPos + i]];
+                }
                 ++delEvents;
                 if (len > 1) ++delMultiEvents;
                 del += len;
                 refPos += len;
                 break;
             case BAM::CigarOperationType::SEQUENCE_MISMATCH:
-                for (int32_t i = 0; i < len; ++i) {
-                    ++singleBase[ref[refPos + i]][qry[qryPos + i]];
+                if (extendedMetrics) {
+                    for (int32_t i = 0; i < len; ++i) {
+                        ++singleBase[ref[refPos + i]][qry[qryPos + i]];
+                    }
                 }
                 mismatch += len;
                 refPos += len;
                 qryPos += len;
                 break;
             case BAM::CigarOperationType::SEQUENCE_MATCH:
-                for (int32_t i = 0; i < len; ++i) {
-                    ++singleBase[ref[refPos + i]][qry[qryPos + i]];
+                if (extendedMetrics) {
+                    for (int32_t i = 0; i < len; ++i) {
+                        ++singleBase[ref[refPos + i]][qry[qryPos + i]];
+                    }
                 }
                 refPos += len;
                 qryPos += len;
@@ -142,48 +151,50 @@ std::string ParseAlignment(const BAM::BamRecord& record,
         << numAlignedBases << ' ' << concordance << ' ' << qv << ' ' << match << ' ' << mismatch
         << ' ' << del << ' ' << ins << ' ' << delEvents << ' ' << insEvents << ' ' << delMultiEvents
         << ' ' << insMultiEvents;
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            if (singleBase.find(refBase) == singleBase.cend() ||
-                singleBase.at(refBase).find(qryBase) == singleBase.at(refBase).cend()) {
-                out << ' ' << 0;
-            } else {
-                out << ' ' << singleBase.at(refBase).at(qryBase);
+    if (extendedMetrics) {
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                if (singleBase.find(refBase) == singleBase.cend() ||
+                    singleBase.at(refBase).find(qryBase) == singleBase.at(refBase).cend()) {
+                    out << ' ' << 0;
+                } else {
+                    out << ' ' << singleBase.at(refBase).at(qryBase);
+                }
             }
         }
-    }
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            if (singleBaseIns.find(refBase) == singleBaseIns.cend() ||
-                singleBaseIns.at(refBase).find(qryBase) == singleBaseIns.at(refBase).cend()) {
-                out << ' ' << 0;
-            } else {
-                out << ' ' << singleBaseIns.at(refBase).at(qryBase);
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                if (singleBaseIns.find(refBase) == singleBaseIns.cend() ||
+                    singleBaseIns.at(refBase).find(qryBase) == singleBaseIns.at(refBase).cend()) {
+                    out << ' ' << 0;
+                } else {
+                    out << ' ' << singleBaseIns.at(refBase).at(qryBase);
+                }
             }
         }
-    }
-    for (const auto& refBase : bases) {
-        if (singleBaseDel.find(refBase) == singleBaseDel.cend()) {
-            out << ' ' << 0;
-        } else {
-            out << ' ' << singleBaseDel.at(refBase);
-        }
-    }
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            if (allBaseIns.find(refBase) == allBaseIns.cend() ||
-                allBaseIns.at(refBase).find(qryBase) == allBaseIns.at(refBase).cend()) {
+        for (const auto& refBase : bases) {
+            if (singleBaseDel.find(refBase) == singleBaseDel.cend()) {
                 out << ' ' << 0;
             } else {
-                out << ' ' << allBaseIns.at(refBase).at(qryBase);
+                out << ' ' << singleBaseDel.at(refBase);
             }
         }
-    }
-    for (const auto& refBase : bases) {
-        if (allBaseDel.find(refBase) == allBaseDel.cend()) {
-            out << ' ' << 0;
-        } else {
-            out << ' ' << allBaseDel.at(refBase);
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                if (allBaseIns.find(refBase) == allBaseIns.cend() ||
+                    allBaseIns.at(refBase).find(qryBase) == allBaseIns.at(refBase).cend()) {
+                    out << ' ' << 0;
+                } else {
+                    out << ' ' << allBaseIns.at(refBase).at(qryBase);
+                }
+            }
+        }
+        for (const auto& refBase : bases) {
+            if (allBaseDel.find(refBase) == allBaseDel.cend()) {
+                out << ' ' << 0;
+            } else {
+                out << ' ' << allBaseDel.at(refBase);
+            }
         }
     }
     out << '\n';
@@ -230,26 +241,28 @@ int RunnerSubroutine(const CLI_v2::Results& options)
                << "alnlen" << ' ' << "concordance" << ' ' << "qv" << ' ' << "match" << ' '
                << "mismatch" << ' ' << "del" << ' ' << "ins" << ' ' << "del_events" << ' '
                << "ins_events" << ' ' << "del_multi_events" << ' ' << "ins_multi_events";
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            outputFile << " sub_" << refBase << qryBase;
+    if (settings.ExtendedMatrics) {
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                outputFile << " sub_" << refBase << qryBase;
+            }
         }
-    }
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            outputFile << " ins_single_" << refBase << qryBase;
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                outputFile << " ins_single_" << refBase << qryBase;
+            }
         }
-    }
-    for (const auto& refBase : bases) {
-        outputFile << " del_single_" << refBase;
-    }
-    for (const auto& refBase : bases) {
-        for (const auto& qryBase : bases) {
-            outputFile << " ins_all_" << refBase << qryBase;
+        for (const auto& refBase : bases) {
+            outputFile << " del_single_" << refBase;
         }
-    }
-    for (const auto& refBase : bases) {
-        outputFile << " del_all_" << refBase;
+        for (const auto& refBase : bases) {
+            for (const auto& qryBase : bases) {
+                outputFile << " ins_all_" << refBase << qryBase;
+            }
+        }
+        for (const auto& refBase : bases) {
+            outputFile << " del_all_" << refBase;
+        }
     }
     outputFile << '\n';
 
@@ -259,17 +272,18 @@ int RunnerSubroutine(const CLI_v2::Results& options)
             if (++counter % 1000 == 0) {
                 PBLOG_INFO << counter;
             }
-            outputFile << ParseAlignment(record, refs);
+            outputFile << ParseAlignment(record, refs, settings.ExtendedMatrics);
         }
     } else {
         Parallel::WorkQueue<std::vector<std::string>> workQueue(settings.NumThreads, 10);
         std::future<void> workerThread =
             std::async(std::launch::async, WorkerThread, std::ref(workQueue), std::ref(outputFile));
 
-        const auto submit = [&refs](const std::vector<BAM::BamRecord>& records) {
+        const auto submit = [&refs, extendedMetrics = settings.ExtendedMatrics](
+                                const std::vector<BAM::BamRecord>& records) {
             std::vector<std::string> ss;
             for (const auto& record : records) {
-                ss.emplace_back(ParseAlignment(record, refs));
+                ss.emplace_back(ParseAlignment(record, refs, extendedMetrics));
             }
             return ss;
         };

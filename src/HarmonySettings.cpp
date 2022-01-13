@@ -25,6 +25,13 @@ R"({
     "default" : ""
 })"
 };
+const CLI_v2::Option ExtendedMatrics {
+R"({
+    "names" : ["e", "extended-metrics"],
+    "description" : "Output extended metrics, not required for harmony plots",
+    "type" : "bool"
+})"
+};
 // clang-format on
 }  // namespace OptionNames
 
@@ -34,6 +41,7 @@ HarmonySettings::HarmonySettings(const PacBio::CLI_v2::Results& options)
     , FileNames(options.PositionalArguments())
     , Region(options[OptionNames::Region])
     , NumThreads(options.NumThreads())
+    , ExtendedMatrics(options[OptionNames::ExtendedMatrics])
 {
     if (FileNames.size() > 4 || FileNames.size() < 3) {
         PBLOG_FATAL << "Please specify input alignment BAM file, reference FASTA file, and output "
@@ -76,6 +84,7 @@ CLI_v2::Interface HarmonySettings::CreateCLI()
     })"};
     i.AddPositionalArguments({InputAlignFile, InputRefFile, OutputHarmonyFile});
     i.AddOption(OptionNames::Region);
+    i.AddOption(OptionNames::ExtendedMatrics);
 
     const auto printVersion = [](const CLI_v2::Interface& interface) {
         const std::string harmonyVersion = []() {

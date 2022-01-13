@@ -34,4 +34,5 @@ g1 = ggplot(qv_summary) +
         legend.text = element_text(size=14), legend.title = element_text(size=14,face="bold"))+
   scale_x_continuous(breaks=c(3,5,10,15,20))
 
-ggsave("harmony.pdf",g1,width=25,height=15,dpi=200,units="cm",limitsize = FALSE)
+ggsave("harmony.pdf",g1,width=25,height=15,dpi=200,units="cm",limitsize = FALSE, bg="white")
+ggsave("harmony.png",g1,width=25,height=15,dpi=200,units="cm",limitsize = FALSE, bg="white")

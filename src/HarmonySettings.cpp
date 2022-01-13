@@ -69,8 +69,8 @@ CLI_v2::Interface HarmonySettings::CreateCLI()
     })"};
     const CLI_v2::PositionalArgument OutputHarmonyFile{
         R"({
-        "name" : "OUT.harmony",
-        "description" : "Harmony TSV.",
+        "name" : "OUT.harmony.txt",
+        "description" : "Harmony TXT.",
         "type" : "file",
         "required" : true
     })"};

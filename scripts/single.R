@@ -18,6 +18,8 @@ for (p in args) {
 }
 
 qv_summary = data %>% group_by(ec,dataset) %>% filter(ec < 30)  %>% summarise(numBases = sum(alnlen), numMM = sum(mismatch), numM = sum(match), numIE = sum(ins_events), numDE = sum(del_events), qv = -10*log10(1-(1+numM)/(1+numM+numMM+numIE+numDE)))
+# if quality value is infinite, then make it Q70
+qv_summary$qv[is.infinite(qv_summary$qv)] <- 70
 # qv_summary = data %>% group_by(ec,dataset) %>% filter(ec < 30) %>% summarise(numBases = sum(alnlen), TotalBases = sum(match + mismatch + ins), error = sum(mismatch + del + ins), qv = ifelse(error==0,ceiling(-10*log10(1/TotalBases)), -10*log10(error/TotalBases)))
 g1 = ggplot(qv_summary) +
   stat_smooth(aes(ec,qv,fill=dataset,col=dataset), alpha = 0.1) +

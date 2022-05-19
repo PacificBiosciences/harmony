@@ -1,17 +1,17 @@
 #include "HarmonySettings.hpp"
 
-#include "LibraryInfo.hpp"
-
 #include <htslib/hts.h>
 #include <pbbam/PbbamVersion.h>
 #include <pbcopper/cli2/internal/BuiltinOptions.h>
 #include <pbcopper/logging/Logging.h>
 #include <pbcopper/utility/PbcopperVersion.h>
 #include <zlib.h>
+
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/version.hpp>
-
 #include <iostream>
+
+#include "LibraryInfo.hpp"
 
 namespace PacBio {
 namespace Harmony {
@@ -61,28 +61,28 @@ CLI_v2::Interface HarmonySettings::CreateCLI()
     logConfig.Fields = Logging::LogField::TIMESTAMP | Logging::LogField::LOG_LEVEL;
     i.LogConfig(logConfig);
 
-    const CLI_v2::PositionalArgument InputAlignFile{
+    const CLI_v2::PositionalArgument inputAlignFile{
         R"({
         "name" : "IN.aligned.bam",
         "description" : "Aligned BAM.",
         "type" : "file",
         "required" : true
     })"};
-    const CLI_v2::PositionalArgument InputRefFile{
+    const CLI_v2::PositionalArgument inputRefFile{
         R"({
         "name" : "IN.ref.fasta",
         "description" : "Reference FASTA.",
         "type" : "file",
         "required" : true
     })"};
-    const CLI_v2::PositionalArgument OutputHarmonyFile{
+    const CLI_v2::PositionalArgument outputHarmonyFile{
         R"({
         "name" : "OUT.harmony.txt",
         "description" : "Harmony TXT.",
         "type" : "file",
         "required" : true
     })"};
-    i.AddPositionalArguments({InputAlignFile, InputRefFile, OutputHarmonyFile});
+    i.AddPositionalArguments({inputAlignFile, inputRefFile, outputHarmonyFile});
     i.AddOption(OptionNames::Region);
     i.AddOption(OptionNames::ExtendedMatrics);
 

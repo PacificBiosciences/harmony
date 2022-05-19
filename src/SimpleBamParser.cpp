@@ -14,7 +14,9 @@ AlignedCollator::AlignedCollator(std::vector<std::unique_ptr<BAM::BamReader>> re
 {
     for (auto&& reader : readers) {
         auto item = BAM::internal::CompositeMergeItem{std::move(reader)};
-        if (item.reader->GetNext(item.record)) mergeItems_.push_back(std::move(item));
+        if (item.reader->GetNext(item.record)) {
+            mergeItems_.push_back(std::move(item));
+        }
     }
     UpdateSort();
 }
@@ -27,7 +29,9 @@ void AlignedCollator::UpdateSort()
 bool AlignedCollator::GetNext(BAM::BamRecord& record)
 {
     // nothing left to read
-    if (mergeItems_.empty()) return false;
+    if (mergeItems_.empty()) {
+        return false;
+    }
 
     // non-destructive 'pop' of first item from queue
     auto firstIter = mergeItems_.begin();
@@ -54,23 +58,26 @@ std::vector<std::unique_ptr<BAM::BamReader>> SimpleBamParser::GetBamReaders(
     const std::string& filePath, const BAM::PbiFilter& filter)
 {
     BAM::DataSet ds(filePath);
-    std::vector<std::string> inputFilenames_;
+    std::vector<std::string> inputFilenames;
     const auto& bamFiles = ds.BamFiles();
-    inputFilenames_.reserve(bamFiles.size());
-    for (const auto& file : bamFiles)
-        inputFilenames_.push_back(file.Filename());
+    inputFilenames.reserve(bamFiles.size());
+    for (const auto& file : bamFiles) {
+        inputFilenames.push_back(file.Filename());
+    }
 
-    if (inputFilenames_.empty())
+    if (inputFilenames.empty()) {
         throw std::runtime_error("no input filenames provided to BamFileMerger");
+    }
 
     // attempt open input files
     std::vector<std::unique_ptr<BAM::BamReader>> readers;
-    readers.reserve(inputFilenames_.size());
-    for (const auto& fn : inputFilenames_) {
-        if (filter.IsEmpty())
+    readers.reserve(inputFilenames.size());
+    for (const auto& fn : inputFilenames) {
+        if (filter.IsEmpty()) {
             readers.emplace_back(new BAM::BamReader(fn));
-        else
+        } else {
             readers.emplace_back(new BAM::PbiIndexedBamReader(filter, fn));
+        }
     }
     return readers;
 }
@@ -80,10 +87,12 @@ std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePat
 {
     if (!Utility::FileExists(filePath)) {
         PBLOG_FATAL << "Could not open input file " << filePath;
-        std::exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
     }
     using namespace BAM;
-    if (userFilters.empty()) return BamQuery(filePath);
+    if (userFilters.empty()) {
+        return BamQuery(filePath);
+    }
 
     BAM::DataSet ds(filePath);
     int bamCounter = 0;
@@ -97,7 +106,7 @@ std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePat
 
     if (bamCounter == 0) {
         PBLOG_FATAL << "No input BAM files";
-        std::exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
     }
 
     bool usePbi = bamCounter == pbiCounter;
@@ -111,19 +120,19 @@ std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePat
         std::vector<std::string> singleFilters;
         boost::split(singleFilters, userFilters, boost::is_any_of(";"));
         for (const auto& singleFilter : singleFilters) {
-            std::vector<std::string> chr_pos;
-            boost::split(chr_pos, singleFilter, boost::is_any_of(":"));
+            std::vector<std::string> chrPos;
+            boost::split(chrPos, singleFilter, boost::is_any_of(":"));
 
-            PbiFilter refFilter = PbiReferenceNameFilter{chr_pos[0], Compare::EQUAL};
-            if (chr_pos.size() == 1) {
+            PbiFilter refFilter = PbiReferenceNameFilter{chrPos[0], Compare::EQUAL};
+            if (chrPos.size() == 1) {
                 pbiFilters.emplace_back(std::move(refFilter));
-            } else if (chr_pos.size() == 2) {
+            } else if (chrPos.size() == 2) {
                 std::vector<std::string> pos;
-                boost::split(pos, chr_pos[1], boost::is_any_of("-"));
+                boost::split(pos, chrPos[1], boost::is_any_of("-"));
                 if (pos.size() == 1) {
                     if (std::stoi(pos[0]) < 0) {
                         PBLOG_FATAL << "Reference position has to be non-negative.";
-                        std::exit(EXIT_FAILURE);
+                        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
                     }
                     boost::replace_all(pos[0], ",", "");
                     uint32_t singlePos = std::stoul(pos[0]);
@@ -136,7 +145,7 @@ std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePat
                     boost::replace_all(pos[1], ",", "");
                     if (std::stoi(pos[0]) < 0 || std::stoi(pos[1]) < 0) {
                         PBLOG_FATAL << "Reference position has to be non-negative.";
-                        std::exit(EXIT_FAILURE);
+                        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
                     }
                     uint32_t startPos = std::stoul(pos[0]);
                     uint32_t endPos = std::stoul(pos[1]);
@@ -146,30 +155,32 @@ std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePat
                          PbiReferenceStartFilter{endPos, Compare::LESS_THAN_EQUAL}}));
                 } else if (pos.size() > 2) {
                     PBLOG_FATAL << "Only two positions per filter allowed.";
-                    std::exit(EXIT_FAILURE);
+                    std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
                 }
-            } else if (chr_pos.size() > 2) {
+            } else if (chrPos.size() > 2) {
                 PBLOG_FATAL << "Only one : per filter allowed.";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
             }
         }
 
-        const auto filter = BAM::PbiFilter::FromDataSet(ds);
+        auto filter = BAM::PbiFilter::FromDataSet(ds);
         BAM::PbiFilter filters;
-        if (filter.IsEmpty())
+        if (filter.IsEmpty()) {
             filters = PbiFilter::Union(std::move(pbiFilters));
-        else
+        } else {
             filters = PbiFilter::Intersection(
                 {PbiFilter::Union(std::move(pbiFilters)), std::move(filter)});
+        }
         return std::make_unique<AlignedCollator>(GetBamReaders(filePath, filters));
-    } else if (useBai) {
+    }
+    if (useBai) {
         PBLOG_INFO << "Using BAI files for filtering";
         std::string filterNoComma = userFilters;
         boost::replace_all(filterNoComma, ",", "");
         return std::make_unique<BaiReader>(filterNoComma, ds);
     }
     PBLOG_FATAL << "Number of index files does not match number of BAM files!";
-    std::exit(EXIT_FAILURE);
+    std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
 }
 
 std::unique_ptr<ReaderBase> SimpleBamParser::BamQuery(const std::string& filePath)
@@ -187,12 +198,13 @@ BAM::BamHeader SimpleBamParser::ExtractHeader(const std::string& datasetPath)
     const auto bamFiles = BAM::DataSet(datasetPath).BamFiles();
     if (bamFiles.empty()) {
         std::cerr << "No BAM files available for: " << datasetPath << std::endl;
-        std::exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
     }
 
     header = bamFiles.front().Header();
-    for (size_t i = 1; i < bamFiles.size(); ++i)
+    for (size_t i = 1; i < bamFiles.size(); ++i) {
         header += bamFiles.at(i).Header();
+    }
 
     return header;
 }
@@ -202,12 +214,14 @@ std::vector<BAM::ReadGroupInfo> SimpleBamParser::ExtractReadGroups(const std::st
     const auto bamFiles = BAM::DataSet(datasetPath).BamFiles();
     if (bamFiles.empty()) {
         std::cerr << "No BAM files available for: " << datasetPath << std::endl;
-        std::exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
     }
 
-    for (size_t i = 0; i < bamFiles.size(); ++i)
-        for (const auto& rg : bamFiles.at(i).Header().ReadGroups())
+    for (const auto& bamFile : bamFiles) {
+        for (const auto& rg : bamFile.Header().ReadGroups()) {
             out.emplace_back(rg);
+        }
+    }
 
     return out;
 }

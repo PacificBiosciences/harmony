@@ -1,9 +1,9 @@
 #include "HarmonySettings.hpp"
 #include "LibraryInfo.hpp"
 #include "SimpleBamParser.h"
-#include "pbbam/BamRecord.h"
 
 #include <htslib/hts.h>
+#include <pbbam/BamRecord.h>
 #include <pbbam/FastaReader.h>
 #include <pbbam/IndexedFastaReader.h>
 #include <pbbam/PbbamVersion.h>
@@ -15,8 +15,8 @@
 #include <pbcopper/utility/PbcopperVersion.h>
 #include <pbcopper/utility/Stopwatch.h>
 #include <zlib.h>
-#include <boost/version.hpp>
 
+#include <boost/version.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -28,23 +28,24 @@
 namespace PacBio {
 namespace Harmony {
 
-static constexpr std::array<char, 4> bases{'A', 'C', 'G', 'T'};
+static constexpr std::array<char, 4> BASES{'A', 'C', 'G', 'T'};
 
 std::unordered_map<std::string, std::string> ReadRefs(const std::string& refFile)
 {
     std::unordered_map<std::string, std::string> refs;
     PacBio::BAM::FastaReader fastaReader{refFile};
     PacBio::BAM::FastaSequence fasta;
-    while (fastaReader.GetNext(fasta))
+    while (fastaReader.GetNext(fasta)) {
         refs.insert({fasta.Name(), fasta.Bases()});
+    }
     return refs;
 }
 
 void SetBamReaderDecompThreads(const int32_t numThreads)
 {
-    static constexpr char BAMREADER_ENV[] = "PB_BAMREADER_THREADS";
+    static constexpr char BAMREADER_ENV[] = "PB_BAMREADER_THREADS";  //NOLINT
     const std::string decompThreads = std::to_string(numThreads);
-    setenv(BAMREADER_ENV, decompThreads.c_str(), true);
+    setenv(BAMREADER_ENV, decompThreads.c_str(), true);  //NOLINT(concurrency-mt-unsafe)
 }
 
 std::string ParseAlignment(const BAM::BamRecord& record,
@@ -79,18 +80,23 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                     ++singleBaseIns[ref[refPos]][qry[qryPos]];
                 }
                 ++insEvents;
-                if (len > 1) ++insMultiEvents;
+                if (len > 1) {
+                    ++insMultiEvents;
+                }
                 ins += len;
                 qryPos += len;
                 break;
             case BAM::CigarOperationType::DELETION:
                 if (extendedMetrics) {
                     ++singleBaseDel[ref[refPos]];
-                    for (int32_t i = 0; i < len; ++i)
+                    for (int32_t i = 0; i < len; ++i) {
                         ++allBaseDel[ref[refPos + i]];
+                    }
                 }
                 ++delEvents;
-                if (len > 1) ++delMultiEvents;
+                if (len > 1) {
+                    ++delMultiEvents;
+                }
                 del += len;
                 refPos += len;
                 break;
@@ -119,20 +125,20 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 break;
             case BAM::CigarOperationType::ALIGNMENT_MATCH:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: ALIGNMENT MATCH";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
             case BAM::CigarOperationType::REFERENCE_SKIP:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: REFERENCE SKIP";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
             case BAM::CigarOperationType::HARD_CLIP:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: HARD CLIP";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
             case BAM::CigarOperationType::PADDING:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: PADDING";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
             case BAM::CigarOperationType::UNKNOWN_OP:
             default:
                 PBLOG_FATAL << "UNKNOWN OP";
-                std::exit(EXIT_FAILURE);
+                std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
                 break;
         }
     }
@@ -152,8 +158,8 @@ std::string ParseAlignment(const BAM::BamRecord& record,
         << ' ' << del << ' ' << ins << ' ' << delEvents << ' ' << insEvents << ' ' << delMultiEvents
         << ' ' << insMultiEvents;
     if (extendedMetrics) {
-        for (const auto& refBase : bases) {
-            for (const auto& qryBase : bases) {
+        for (const auto refBase : BASES) {
+            for (const auto qryBase : BASES) {
                 if (singleBase.find(refBase) == singleBase.cend() ||
                     singleBase.at(refBase).find(qryBase) == singleBase.at(refBase).cend()) {
                     out << ' ' << 0;
@@ -162,8 +168,8 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 }
             }
         }
-        for (const auto& refBase : bases) {
-            for (const auto& qryBase : bases) {
+        for (const auto refBase : BASES) {
+            for (const auto qryBase : BASES) {
                 if (singleBaseIns.find(refBase) == singleBaseIns.cend() ||
                     singleBaseIns.at(refBase).find(qryBase) == singleBaseIns.at(refBase).cend()) {
                     out << ' ' << 0;
@@ -172,15 +178,15 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 }
             }
         }
-        for (const auto& refBase : bases) {
+        for (const auto refBase : BASES) {
             if (singleBaseDel.find(refBase) == singleBaseDel.cend()) {
                 out << ' ' << 0;
             } else {
                 out << ' ' << singleBaseDel.at(refBase);
             }
         }
-        for (const auto& refBase : bases) {
-            for (const auto& qryBase : bases) {
+        for (const auto refBase : BASES) {
+            for (const auto qryBase : BASES) {
                 if (allBaseIns.find(refBase) == allBaseIns.cend() ||
                     allBaseIns.at(refBase).find(qryBase) == allBaseIns.at(refBase).cend()) {
                     out << ' ' << 0;
@@ -189,7 +195,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 }
             }
         }
-        for (const auto& refBase : bases) {
+        for (const auto& refBase : BASES) {
             if (allBaseDel.find(refBase) == allBaseDel.cend()) {
                 out << ' ' << 0;
             } else {
@@ -205,7 +211,7 @@ void WorkerThread(Parallel::WorkQueue<std::vector<std::string>>& queue, std::ofs
 {
     int32_t counter = 0;
 
-    auto LambdaWorker = [&](std::vector<std::string>&& ps) {
+    const auto lambdaWorker = [&](std::vector<std::string>&& ps) {
         for (const auto& s : ps) {
             if (++counter % 1000 == 0) {
                 PBLOG_INFO << counter;
@@ -214,7 +220,7 @@ void WorkerThread(Parallel::WorkQueue<std::vector<std::string>>& queue, std::ofs
         }
     };
 
-    while (queue.ConsumeWith(LambdaWorker)) {
+    while (queue.ConsumeWith(lambdaWorker)) {
     }
 }
 
@@ -282,6 +288,7 @@ int RunnerSubroutine(const CLI_v2::Results& options)
         const auto submit = [&refs, extendedMetrics = settings.ExtendedMatrics](
                                 const std::vector<BAM::BamRecord>& records) {
             std::vector<std::string> ss;
+            ss.reserve(records.size());
             for (const auto& record : records) {
                 ss.emplace_back(ParseAlignment(record, refs, extendedMetrics));
             }

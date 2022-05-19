@@ -2,7 +2,6 @@
 
 #include <LibraryGitHash.hpp>
 #include <LibraryVersion.hpp>
-
 #include <string>
 
 namespace PacBio {

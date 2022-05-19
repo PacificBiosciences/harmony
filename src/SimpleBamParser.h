@@ -11,13 +11,14 @@
 #include <pbbam/PbiIndexedBamReader.h>
 #include <pbbam/internal/QueryBase.h>
 #include <pbcopper/logging/Logging.h>
-#include <boost/algorithm/string.hpp>
-#include "pbbam/GenomicInterval.h"
 
+#include <boost/algorithm/string.hpp>
 #include <deque>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "pbbam/GenomicInterval.h"
 
 namespace PacBio {
 
@@ -26,7 +27,6 @@ class ReaderBase
 public:
     virtual ~ReaderBase(){};
 
-public:
     virtual bool GetNext(BAM::BamRecord&) = 0;
 };
 
@@ -36,7 +36,6 @@ public:
     BaiReader(const BAM::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset);
     ~BaiReader() override = default;
 
-public:
     bool GetNext(BAM::BamRecord& record) override;
 
 private:
@@ -46,7 +45,7 @@ private:
 class AlignedCollator : public ReaderBase
 {
 public:
-    AlignedCollator(std::vector<std::unique_ptr<BAM::BamReader>> readers);
+    explicit AlignedCollator(std::vector<std::unique_ptr<BAM::BamReader>> readers);
     ~AlignedCollator() override = default;
 
     bool GetNext(BAM::BamRecord& record) override;
@@ -54,13 +53,11 @@ public:
 private:
     void UpdateSort();
 
-private:
     std::deque<BAM::internal::CompositeMergeItem> mergeItems_;
 };
 
 struct SimpleBamParser
 {
-
     static std::vector<std::unique_ptr<BAM::BamReader>> GetBamReaders(const std::string& filePath,
                                                                       const BAM::PbiFilter& filter);
 

@@ -150,7 +150,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
     const int32_t numPasses = record.HasNumPasses() ? record.NumPasses() : -1;
     const int32_t ec = record.Impl().HasTag("ec") ? record.Impl().TagValue("ec").ToFloat() : -1;
     const std::string name = record.FullName();
-    const double rq = record.ReadAccuracy();
+    const float rq = record.HasReadAccuracy() ? static_cast<float>(record.ReadAccuracy()) : -1f;
     const int32_t seqlen = qry.size();
 
     out << name << ' ' << numPasses << ' ' << ec << ' ' << rq << ' ' << seqlen << ' '

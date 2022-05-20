@@ -16,6 +16,7 @@
 #include <pbcopper/utility/Stopwatch.h>
 #include <zlib.h>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/version.hpp>
 #include <fstream>
 #include <iomanip>
@@ -66,9 +67,11 @@ std::string ParseAlignment(const BAM::BamRecord& record,
     int32_t delMultiEvents = 0;
     int32_t mismatch = 0;
     int32_t match = 0;
-    const auto ref =
-        refs.at(record.ReferenceName())
-            .substr(record.ReferenceStart(), record.ReferenceEnd() - record.ReferenceStart());
+    std::string ref;
+    if (refs.find(record.ReferenceName()) != refs.cend()) {
+        ref = refs.at(record.ReferenceName())
+                  .substr(record.ReferenceStart(), record.ReferenceEnd() - record.ReferenceStart());
+    }
     int32_t qryPos = 0;
     int32_t refPos = 0;
     const auto qry = record.Sequence(BAM::Orientation::GENOMIC);
@@ -76,7 +79,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
         int32_t len = cigar.Length();
         switch (cigar.Type()) {
             case BAM::CigarOperationType::INSERTION:
-                if (extendedMetrics) {
+                if (extendedMetrics && !ref.empty()) {
                     ++singleBaseIns[ref[refPos]][qry[qryPos]];
                 }
                 ++insEvents;
@@ -87,7 +90,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 qryPos += len;
                 break;
             case BAM::CigarOperationType::DELETION:
-                if (extendedMetrics) {
+                if (extendedMetrics && !ref.empty()) {
                     ++singleBaseDel[ref[refPos]];
                     for (int32_t i = 0; i < len; ++i) {
                         ++allBaseDel[ref[refPos + i]];
@@ -101,7 +104,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 refPos += len;
                 break;
             case BAM::CigarOperationType::SEQUENCE_MISMATCH:
-                if (extendedMetrics) {
+                if (extendedMetrics && !ref.empty()) {
                     for (int32_t i = 0; i < len; ++i) {
                         ++singleBase[ref[refPos + i]][qry[qryPos + i]];
                     }
@@ -111,7 +114,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 qryPos += len;
                 break;
             case BAM::CigarOperationType::SEQUENCE_MATCH:
-                if (extendedMetrics) {
+                if (extendedMetrics && !ref.empty()) {
                     for (int32_t i = 0; i < len; ++i) {
                         ++singleBase[ref[refPos + i]][qry[qryPos + i]];
                     }
@@ -150,7 +153,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
     const int32_t numPasses = record.HasNumPasses() ? record.NumPasses() : -1;
     const int32_t ec = record.Impl().HasTag("ec") ? record.Impl().TagValue("ec").ToFloat() : -1;
     const std::string name = record.FullName();
-    const float rq = record.HasReadAccuracy() ? static_cast<float>(record.ReadAccuracy()) : -1f;
+    const float rq = record.HasReadAccuracy() ? static_cast<float>(record.ReadAccuracy()) : -1.f;
     const int32_t seqlen = qry.size();
 
     out << name << ' ' << numPasses << ' ' << ec << ' ' << rq << ' ' << seqlen << ' '
@@ -230,18 +233,24 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     HarmonySettings settings{options};
     SetBamReaderDecompThreads(settings.NumThreads);
 
+    const bool hasRef{boost::iends_with(settings.FileNames[1], ".fa") ||
+                      boost::iends_with(settings.FileNames[1], ".fasta") ||
+                      boost::iends_with(settings.FileNames[1], ".fa.gz") ||
+                      boost::iends_with(settings.FileNames[1], ".fasta.gz")};
     const std::string alnFile{settings.FileNames[0]};
-    const std::string refFile{settings.FileNames[1]};
 
     std::unique_ptr<ReaderBase> alnReader = SimpleBamParser::BamQuery(alnFile, settings.Region);
-    PBLOG_INFO << "Start reading reference";
-    std::unordered_map<std::string, std::string> refs = ReadRefs(refFile);
-    PBLOG_INFO << "Finished reading reference";
+    std::unordered_map<std::string, std::string> refs;
+    if (hasRef) {
+        PBLOG_INFO << "Start reading reference";
+        refs = ReadRefs(settings.FileNames[1]);
+        PBLOG_INFO << "Finished reading reference";
+    }
 
     std::array<char, 4> bases = {'A', 'C', 'G', 'T'};
     BAM::BamRecord record;
 
-    std::ofstream outputFile{settings.FileNames[2]};
+    std::ofstream outputFile{hasRef ? settings.FileNames[2] : settings.FileNames[1]};
 
     outputFile << "name" << ' ' << "passes" << ' ' << "ec" << ' ' << "rq" << ' ' << "seqlen" << ' '
                << "alnlen" << ' ' << "concordance" << ' ' << "qv" << ' ' << "match" << ' '

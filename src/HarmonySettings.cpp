@@ -43,7 +43,14 @@ HarmonySettings::HarmonySettings(const PacBio::CLI_v2::Results& options)
     , NumThreads(options.NumThreads())
     , ExtendedMatrics(options[OptionNames::ExtendedMatrics])
 {
-    if (FileNames.size() > 4 || FileNames.size() < 3) {
+    if (FileNames.size() > 4 || FileNames.size() < 2) {
+        PBLOG_FATAL
+            << "Please specify input alignment BAM file, optional reference FASTA file, and output "
+               "harmony TSV file. Please see --help for more information.";
+        std::exit(EXIT_FAILURE);
+    }
+
+    if ((ExtendedMatrics || !Region.empty()) && FileNames.size() != 3) {
         PBLOG_FATAL << "Please specify input alignment BAM file, reference FASTA file, and output "
                        "harmony TSV file. Please see --help for more information.";
         std::exit(EXIT_FAILURE);
@@ -66,7 +73,7 @@ CLI_v2::Interface HarmonySettings::CreateCLI()
         "name" : "IN.aligned.bam",
         "description" : "Aligned BAM.",
         "type" : "file",
-        "required" : true
+        "required" : false
     })"};
     const CLI_v2::PositionalArgument inputRefFile{
         R"({

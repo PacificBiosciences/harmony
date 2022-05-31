@@ -25,11 +25,20 @@ R"({
     "default" : ""
 })"
 };
-const CLI_v2::Option ExtendedMatrics {
+const CLI_v2::Option ExtendedMetrics {
 R"({
     "names" : ["e", "extended-metrics"],
     "description" : "Output extended metrics, not required for harmony plots",
     "type" : "bool"
+})"
+};
+
+const CLI_v2::Option QVAnalysisOutput {
+R"({
+    "names" : ["qv-out"],
+    "description" : "Compute empirical QVs and dump results to file [<out>.html | <file>.csv] or std::cout '-'",
+    "type" : "string",
+    "default" : ""
 })"
 };
 // clang-format on
@@ -41,7 +50,8 @@ HarmonySettings::HarmonySettings(const PacBio::CLI_v2::Results& options)
     , FileNames(options.PositionalArguments())
     , Region(options[OptionNames::Region])
     , NumThreads(options.NumThreads())
-    , ExtendedMatrics(options[OptionNames::ExtendedMatrics])
+    , ExtendedMetrics(options[OptionNames::ExtendedMetrics])
+    , QVAnalysisOutput(options[OptionNames::QVAnalysisOutput])
 {
     if (FileNames.size() > 4 || FileNames.size() < 2) {
         PBLOG_FATAL
@@ -50,7 +60,7 @@ HarmonySettings::HarmonySettings(const PacBio::CLI_v2::Results& options)
         std::exit(EXIT_FAILURE);
     }
 
-    if ((ExtendedMatrics || !Region.empty()) && FileNames.size() != 3) {
+    if ((ExtendedMetrics || !Region.empty()) && FileNames.size() != 3) {
         PBLOG_FATAL << "Please specify input alignment BAM file, reference FASTA file, and output "
                        "harmony TSV file. Please see --help for more information.";
         std::exit(EXIT_FAILURE);
@@ -91,7 +101,9 @@ CLI_v2::Interface HarmonySettings::CreateCLI()
     })"};
     i.AddPositionalArguments({inputAlignFile, inputRefFile, outputHarmonyFile});
     i.AddOption(OptionNames::Region);
-    i.AddOption(OptionNames::ExtendedMatrics);
+    i.AddOption(OptionNames::ExtendedMetrics);
+    i.AddOption(OptionNames::QVAnalysisOutput);
+
 
     const auto printVersion = [](const CLI_v2::Interface& interface) {
         const std::string harmonyVersion = []() {

@@ -22,6 +22,7 @@ harmony_main = executable(
     'HarmonySettings.cpp',
     'LibraryInfo.cpp',
     'main.cpp',
+    'QVAnalysis.cpp',
     'SimpleBamParser.cpp',
   ]) + harmony_gen_headers,
   install : true,

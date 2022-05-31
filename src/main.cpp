@@ -1,5 +1,6 @@
 #include "HarmonySettings.hpp"
 #include "LibraryInfo.hpp"
+#include "QVAnalysis.hpp"
 #include "SimpleBamParser.h"
 
 #include <htslib/hts.h>
@@ -25,6 +26,9 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+
+#include "../third-party/backward-cpp/backward.hpp"
+backward::SignalHandling Sh;
 
 namespace PacBio {
 namespace Harmony {
@@ -256,7 +260,7 @@ int RunnerSubroutine(const CLI_v2::Results& options)
                << "alnlen" << ' ' << "concordance" << ' ' << "qv" << ' ' << "match" << ' '
                << "mismatch" << ' ' << "del" << ' ' << "ins" << ' ' << "del_events" << ' '
                << "ins_events" << ' ' << "del_multi_events" << ' ' << "ins_multi_events";
-    if (settings.ExtendedMatrics) {
+    if (settings.ExtendedMetrics) {
         for (const auto& refBase : bases) {
             for (const auto& qryBase : bases) {
                 outputFile << " sub_" << refBase << qryBase;
@@ -281,25 +285,38 @@ int RunnerSubroutine(const CLI_v2::Results& options)
     }
     outputFile << '\n';
 
+    const bool performQVAnalysis = !settings.QVAnalysisOutput.empty();
+    const bool extendedMetrics = settings.ExtendedMetrics;
+    QVAnalysis qva;
+
     if (settings.NumThreads == 1) {
         int32_t counter = 0;
         while (alnReader->GetNext(record)) {
             if (++counter % 1000 == 0) {
                 PBLOG_INFO << counter;
             }
-            outputFile << ParseAlignment(record, refs, settings.ExtendedMatrics);
+            outputFile << ParseAlignment(record, refs, extendedMetrics);
+            if (performQVAnalysis) {
+                qva.ProcessRecord(record);
+            }
         }
     } else {
         Parallel::WorkQueue<std::vector<std::string>> workQueue(settings.NumThreads, 10);
         std::future<void> workerThread =
             std::async(std::launch::async, WorkerThread, std::ref(workQueue), std::ref(outputFile));
 
-        const auto submit = [&refs, extendedMetrics = settings.ExtendedMatrics](
-                                const std::vector<BAM::BamRecord>& records) {
+        const auto submit = [&](const std::vector<BAM::BamRecord>& records) {
             std::vector<std::string> ss;
-            ss.reserve(records.size());
-            for (const auto& record : records) {
-                ss.emplace_back(ParseAlignment(record, refs, extendedMetrics));
+            try {
+                ss.reserve(records.size());
+                for (const auto& record : records) {
+                    ss.emplace_back(ParseAlignment(record, refs, extendedMetrics));
+                    if (performQVAnalysis) {
+                        qva.ProcessRecord(record);
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::cout << e.what() << std::endl;
             }
             return ss;
         };
@@ -319,6 +336,10 @@ int RunnerSubroutine(const CLI_v2::Results& options)
         workQueue.FinalizeWorkers();
         workerThread.wait();
         workQueue.Finalize();
+    }
+
+    if (performQVAnalysis) {
+        qva.ComputeEmpiricalQVs(settings.QVAnalysisOutput);
     }
 
     globalTimer.Freeze();

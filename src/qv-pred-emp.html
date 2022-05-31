@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Predicted vs empirical QV</title>
+  <meta content="" />
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+    integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.8.0/chart.min.js"
+    integrity="sha512-sW/w8s4RWTdFFSduOTGtk4isV1+190E/GghVffMA9XczdJ2MDzSzLEubKAs5h0wzgSJOQTRYyaz73L3d6RtJSg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col">
+        <canvas id="myChart" width="640" height="480"></canvas>
+      </div>
+    </div>
+  </div>
+  <script>
+    const sample = `#PredictedQV,EmpiricalQV,BaseCount
+0,157,0
+1,6,27
+2,6,6325
+3,7,91518
+4,8,144332
+5,9,131666
+6,10,144687
+7,11,189369
+8,13,208900
+9,13,220606
+10,14,232155
+11,15,254377
+12,16,258415
+13,17,300884
+14,18,312350
+15,18,346872
+16,19,369585
+17,20,418825
+18,21,468329
+19,21,505446
+20,22,495154
+21,23,625873
+22,23,882462
+23,23,753661
+24,24,1050297
+25,24,1757857
+26,28,293371
+27,25,5362095
+28,29,335152
+29,29,357572
+30,28,547648
+31,30,407173
+32,30,434397
+33,31,453748
+34,31,480563
+35,31,510916
+36,31,535848
+37,31,564539
+38,31,593314
+39,32,625578
+40,31,661439
+41,32,692699
+42,32,729254
+43,32,765746
+44,32,799738
+45,32,828288
+46,32,859440
+47,32,901059
+48,32,938583
+49,32,973091
+50,32,1010626
+51,32,1056836
+52,32,1108342
+53,32,1143652
+54,32,1176424
+55,32,1203547
+56,33,1225014
+57,33,1247472
+58,33,1276989
+59,33,1316635
+60,34,1489114
+61,33,1410456
+62,33,1461604
+63,33,1534307
+64,33,1566685
+65,33,1609266
+66,33,1654727
+67,33,1647366
+68,33,1639029
+69,34,1645693
+70,34,1645553
+71,34,1650580
+72,34,1661450
+73,34,1676375
+74,34,1705309
+75,34,1743045
+76,34,1769824
+77,34,1808986
+78,34,1857949
+79,34,1861587
+80,34,1849002
+81,35,1857059
+82,35,1845373
+83,35,1821447
+84,35,1815909
+85,35,1811340
+86,35,1803401
+87,35,1809076
+88,35,1831878
+89,35,1845707
+90,36,1860112
+91,35,1873284
+92,35,1872391
+93,37,90142227
+`;
+    const DATA = sample; // REPLACE
+
+    function fitLine(xyData) {
+      const xs = xyData.map(v => v[0]);
+      const ys = xyData.map(v => v[1]);
+      const N = xyData.length;
+
+      const x_mean =  xs.reduce((acc, a) => acc + a, 0)/N;
+      const y_mean =  ys.reduce((acc, a) => acc + a, 0)/N;
+      let acc_xy = 0;
+      let acc_xx = 0;
+      for (let i = 0; i < N; ++i) {
+        acc_xy += (xs[i] - x_mean)*(ys[i] - y_mean);
+        acc_xx += (xs[i] - x_mean)*(xs[i] - x_mean);
+      }
+      const m = acc_xy/acc_xx;
+      const b = y_mean - m*x_mean;
+
+      const yfit = (x) => m*x + b;
+      return [[0, yfit(0)], [93, yfit(93)]];
+    }
+
+    const lines = DATA.split(/\r?\n/);
+    lines.shift();
+    lines.shift();
+    const vals = lines.map((l) => {
+      const v = l.split(',');
+      return [parseInt(v[0]), parseInt(v[1]), parseInt(v[2])];
+    });
+    vals.pop()
+    const points = vals.map(vs => [vs[0], vs[1]]);
+    const numbases = vals.reduce((acc, a) => acc + a[2], 0);
+    const freqs = vals.map(vs => vs[2]);
+    const labels = vals.map(vs => vs[0])
+    const data = {
+      datasets: [
+        {
+          type: "bar",
+          label: "Base count",
+          data: freqs,
+          borderWidth: 1,
+          borderColor: 'gray',
+          yAxisID: 'y1',
+        },
+        {
+          type: "line",
+          label: "Empirical QV",
+          data: points,
+          borderWidth: 1,
+          borderColor: 'red',
+          pointRadius: 3,
+          pointBorderColor: 'lightgray',
+          yAxisID: 'y',
+        },
+        {
+          type: "line",
+          label: "ideal",
+          data: [[0, 0], [93, 93]],
+          borderWidth: 1,
+          borderColor: 'lightgray',
+          pointRadius: 0,
+          yAxisID: 'y',
+        },
+        {
+          type: "line",
+          label: "fit",
+          data: fitLine(vals),
+          borderWidth: 1,
+          borderColor: 'orange',
+          pointRadius: 0,
+          yAxisID: 'y',
+        }
+      ],
+      labels: labels,
+    };
+
+    const options = {
+      plugins: {
+        legend: {
+          display: false
+        }, title: {
+          display: true,
+          text: 'QV Predicted vs Empirical',
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 60,
+          title: {
+            display: true,
+            text: "QV Predicted",
+          },
+        },
+        y: {
+          beginAtZero: true,
+          max: 60,
+          title: {
+            display: true,
+            text: "QV Empirical",
+          },
+        },
+        y1: {
+          beginAtZero: true,
+          display: true,
+          position: 'right',
+          grid: {
+            drawOnChartArea: false, // only want the grid lines for one axis to show up
+          },
+        },
+
+      },
+    };
+    const ctx = document.getElementById("myChart");
+    const myChart = new Chart(ctx, {
+      data: data,
+      options: options,
+    });
+  </script>
+</body>
+
+</html>

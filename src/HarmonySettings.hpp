@@ -16,9 +16,10 @@ struct HarmonySettings
     const std::vector<std::string> FileNames;
     const std::string Region;
     const int32_t NumThreads;
-    const bool ExtendedMatrics;
+    const bool ExtendedMetrics;
+    const std::string QVAnalysisOutput;
 
-    HarmonySettings(const PacBio::CLI_v2::Results& options);
+    explicit HarmonySettings(const PacBio::CLI_v2::Results& options);
 
     static CLI_v2::Interface CreateCLI();
 };

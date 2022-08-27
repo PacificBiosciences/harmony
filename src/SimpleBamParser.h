@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "pbbam/GenomicInterval.h"
+#include <pbcopper/data/GenomicInterval.h>
 
 namespace PacBio {
 
@@ -33,7 +33,7 @@ public:
 class BaiReader : public ReaderBase
 {
 public:
-    BaiReader(const BAM::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset);
+    BaiReader(const Data::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset);
     ~BaiReader() override = default;
 
     bool GetNext(BAM::BamRecord& record) override;

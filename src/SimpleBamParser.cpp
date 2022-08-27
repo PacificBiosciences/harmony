@@ -4,7 +4,7 @@
 #include <pbcopper/utility/FileUtils.h>
 
 namespace PacBio {
-BaiReader::BaiReader(const BAM::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset)
+BaiReader::BaiReader(const Data::GenomicInterval& interval, const PacBio::BAM::DataSet& dataset)
     : query_{interval, dataset}
 {}
 

@@ -74,11 +74,11 @@ std::string ParseAlignment(const BAM::BamRecord& record,
     }
     int32_t qryPos = 0;
     int32_t refPos = 0;
-    const auto qry = record.Sequence(BAM::Orientation::GENOMIC);
+    const auto qry = record.Sequence(Data::Orientation::GENOMIC);
     for (const auto& cigar : record.CigarData()) {
         int32_t len = cigar.Length();
         switch (cigar.Type()) {
-            case BAM::CigarOperationType::INSERTION:
+            case Data::CigarOperationType::INSERTION:
                 if (extendedMetrics && !ref.empty()) {
                     ++singleBaseIns[ref[refPos]][qry[qryPos]];
                 }
@@ -89,7 +89,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 ins += len;
                 qryPos += len;
                 break;
-            case BAM::CigarOperationType::DELETION:
+            case Data::CigarOperationType::DELETION:
                 if (extendedMetrics && !ref.empty()) {
                     ++singleBaseDel[ref[refPos]];
                     for (int32_t i = 0; i < len; ++i) {
@@ -103,7 +103,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 del += len;
                 refPos += len;
                 break;
-            case BAM::CigarOperationType::SEQUENCE_MISMATCH:
+            case Data::CigarOperationType::SEQUENCE_MISMATCH:
                 if (extendedMetrics && !ref.empty()) {
                     for (int32_t i = 0; i < len; ++i) {
                         ++singleBase[ref[refPos + i]][qry[qryPos + i]];
@@ -113,7 +113,7 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 refPos += len;
                 qryPos += len;
                 break;
-            case BAM::CigarOperationType::SEQUENCE_MATCH:
+            case Data::CigarOperationType::SEQUENCE_MATCH:
                 if (extendedMetrics && !ref.empty()) {
                     for (int32_t i = 0; i < len; ++i) {
                         ++singleBase[ref[refPos + i]][qry[qryPos + i]];
@@ -123,22 +123,22 @@ std::string ParseAlignment(const BAM::BamRecord& record,
                 qryPos += len;
                 match += len;
                 break;
-            case BAM::CigarOperationType::SOFT_CLIP:
+            case Data::CigarOperationType::SOFT_CLIP:
                 qryPos += len;
                 break;
-            case BAM::CigarOperationType::ALIGNMENT_MATCH:
+            case Data::CigarOperationType::ALIGNMENT_MATCH:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: ALIGNMENT MATCH";
                 std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
-            case BAM::CigarOperationType::REFERENCE_SKIP:
+            case Data::CigarOperationType::REFERENCE_SKIP:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: REFERENCE SKIP";
                 std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
-            case BAM::CigarOperationType::HARD_CLIP:
+            case Data::CigarOperationType::HARD_CLIP:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: HARD CLIP";
                 std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
-            case BAM::CigarOperationType::PADDING:
+            case Data::CigarOperationType::PADDING:
                 PBLOG_FATAL << "UNSUPPORTED OPERATION: PADDING";
                 std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)
-            case BAM::CigarOperationType::UNKNOWN_OP:
+            case Data::CigarOperationType::UNKNOWN_OP:
             default:
                 PBLOG_FATAL << "UNKNOWN OP";
                 std::exit(EXIT_FAILURE);  //NOLINT(concurrency-mt-unsafe)

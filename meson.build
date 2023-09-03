@@ -1,7 +1,7 @@
 project(
   'harmony',
   'cpp',
-  version : '0.3.0',
+  version : '0.4.0',
   default_options : [
     'buildtype=release',
     'warning_level=3',
@@ -42,6 +42,7 @@ harmony_lib_deps = [
   harmony_zlib_dep,
   harmony_pbbam_dep,
   harmony_pbcopper_dep,
-  harmony_htslib_dep]
+  harmony_htslib_dep,
+]
 
 subdir('src')
